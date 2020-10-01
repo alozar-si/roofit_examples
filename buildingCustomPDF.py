@@ -5,7 +5,7 @@ Example of custom gaussian function using ratio of sigma1 and sigma2
 from ROOT import TLatex, TFile, TCanvas, TF1, TH1, TH1F, TH2F, gROOT, TString, TMath, gStyle, TRatioPlot, TGraphErrors, TLegend, TGraph
 from ROOT import RooRealVar, RooGaussian, RooAddPdf, RooGenericPdf, RooFit, RooArgList, RooDataHist, RooArgSet, RooDataSet
 from ROOT import kRed, kBlack, kBlue, kGreen, kTRUE, kDashed, kDotted, kFALSE, gSystem
-from ROOT import RooMsgService, RooCategory, RooSimultaneous, RooProdPdf, gPad, RooPolynomial
+from ROOT import RooMsgService, RooCategory, RooSimultaneous, RooProdPdf, gPad, RooPolynomial, RooFormulaVar
 from ROOT.std import map as std_map
 
 from array import array
@@ -26,11 +26,15 @@ sigma2 = RooRealVar("sigma2","Width of Gaussian 2", 0.0072, 0.001, 1);
 gauss2 = RooGaussian("gauss2","gauss1(Mkk,mean2,sigma2)",Mkk,mean2,sigma2);
 r2 = RooRealVar("r2","ratio of width of gaussian 2", 3.2, 0, 10);
 
-gauss2R = RooGenericPdf("gauss2R", "custom PDF build", "1/(sigma1*r2) * exp(- (Mkk - mean2)**2 / (2 * (sigma1*r2) ** 2))", RooArgList(Mkk,mean2,sigma1,r2))
+customGaussR = RooGenericPdf("customGaussR", "custom PDF build", "1/(sigma1*r2) * exp(- (Mkk - mean2)**2 / (2 * (sigma1*r2) ** 2))", RooArgList(Mkk,mean2,sigma1,r2))
 
+# faster method:
+r_sigma2 = RooFormulaVar("r_sigma2","sigma1 * r2", RooArgList(sigma1,r2) )
+gauss2R = RooGaussian("gauss2R","gauss1(Mkk,mean2,sigma2)",Mkk,mean2,r_sigma2)
 
-toyDataR = gauss2R.generate(RooArgSet(Mkk), 100000)
+toyDataCustom = customGaussR.generate(RooArgSet(Mkk), 100000)
 toyData = gauss2.generate(RooArgSet(Mkk), 100000)
+toyDataR = gauss2R.generate(RooArgSet(Mkk), 100000)
 
 c = TCanvas("c", "c", 800, 800)
 frame1 = Mkk.frame(RooFit.Bins(50), RooFit.Title("Comparison of PDFs"))
@@ -38,5 +42,6 @@ frame1 = Mkk.frame(RooFit.Bins(50), RooFit.Title("Comparison of PDFs"))
 # Plot all data tagged as passed sample
 toyData.plotOn(frame1)
 toyDataR.plotOn(frame1)
+toyDataCustom.plotOn(frame1)
 #totalPdf.paramOn(frame1, RooFit.Layout(0.55, 0.9, 0.9), RooFit.Format("NEU", RooFit.AutoPrecision(1)))
 frame1.Draw()
