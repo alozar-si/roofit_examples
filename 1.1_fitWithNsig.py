@@ -1,4 +1,5 @@
 from ROOT import TH1F, RooRealVar, TCanvas, RooDataHist, RooFit, RooGaussian, kTRUE, RooArgList, RooAddPdf, TLatex
+from ROOT import TFile
 
 hh = TH1F("hh", "The hist", 100, -5, 5)
 hh.FillRandom("gaus", 10000)
@@ -45,3 +46,5 @@ xframe.Draw()
 chi2txt = TLatex()
 chi2txt.SetNDC()
 chi2txt.DrawLatex(0.13, 0.83, "\chi^2/n.d.f = %0.3f" %xframe.chiSquare()) #Put chi² on plot
+
+c1.Print("tmp.pdf")
