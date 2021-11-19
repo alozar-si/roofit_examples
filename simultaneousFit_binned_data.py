@@ -73,8 +73,10 @@ myCat.defineType("failed", 0)
 # Convert binned data into RooDataHist
 # ---------------------------------------------------------------
 map_data = std_map("std::string, TH1*")()
-map_data.insert(("failed", data1))
-map_data.insert(("passed", data2))
+map_data['failed']=data1
+map_data['passed']=data2
+"""map_data.insert(("failed", data1))
+map_data.insert(("passed", data2))"""
 combined = RooDataHist("combined", "combined", RooArgList(x), myCat, map_data)
 
 # 1. Construct a simultaneous pdf using category sample as index
