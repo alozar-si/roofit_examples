@@ -73,8 +73,10 @@ myCat.defineType("failed", 0)
 # Convert binned data into RooDataHist
 # ---------------------------------------------------------------
 map_data = std_map("std::string, TH1*")()
-map_data.insert(("failed", data1))
-map_data.insert(("passed", data2))
+map_data['failed']=data1
+map_data['passed']=data2
+"""map_data.insert(("failed", data1))
+map_data.insert(("passed", data2))"""
 combined = RooDataHist("combined", "combined", RooArgList(x), myCat, map_data)
 
 # 1. Construct a simultaneous pdf using category sample as index
@@ -116,5 +118,11 @@ c = TCanvas("c", "c", 1000, 600)
 c.Divide(2)
 c.cd(1)
 frame1.Draw()
+chi2txt = TLatex()
+chi2txt.SetNDC()
+chi2txt.DrawLatex(0.13, 0.83, "\chi^2/n.d.f = %0.3f" %frame1.chiSquare()) #Put chi² on plot
 c.cd(2)
 frame2.Draw()
+chi2txt = TLatex()
+chi2txt.SetNDC()
+chi2txt.DrawLatex(0.13, 0.83, "\chi^2/n.d.f = %0.3f" %frame2.chiSquare()) #Put chi² on plot
