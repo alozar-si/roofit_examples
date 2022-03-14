@@ -1,6 +1,6 @@
 from ROOT import RooRealVar, RooPoisson, RooGaussian, RooExponential, RooLinearVar, RooAddPdf, RooStats, RooArgSet, RooFit, RooArgList, RooAbsData
 from ROOT import TCanvas
-from ROOT import kDashed, kRed, kGreen, RooDataSet, RooConstVar, RooProdPdf, RooMsgService, kTRUE, TLegend, 
+from ROOT import kDashed, kRed, kGreen, RooDataSet, RooConstVar, RooProdPdf, RooMsgService, kTRUE, TLegend
 
 lowRange = 0.
 highRange = 200.
@@ -180,7 +180,7 @@ frame2.Draw();
 # The SPlot class adds a new variable that has the name of the corresponding
 # yield + "_sw".
 cdata.cd(3);
-dataw_qcd = RooDataSet(data.GetName(), data.GetTitle(), data, data.get(), "0.99", "qcdYield_sw");
+dataw_qcd = RooDataSet(data.GetName(), data.GetTitle(), data, data.get(), "qcdYield_sw>0");
 frame3 = isolation.frame();
 dataw_qcd.plotOn(frame3, RooFit.DataError(RooAbsData.SumW2));
 model.plotOn(frame3, RooFit.Components("qcdIsolationModel"))
