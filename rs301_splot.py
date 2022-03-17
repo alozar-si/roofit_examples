@@ -1,7 +1,9 @@
+from matplotlib.style import use
 from ROOT import RooRealVar, RooPoisson, RooGaussian, RooExponential, RooLinearVar, RooAddPdf, RooStats, RooArgSet, RooFit, RooArgList, RooAbsData
 from ROOT import TCanvas
 from ROOT import kDashed, kRed, kGreen, RooDataSet, RooConstVar, RooProdPdf, RooMsgService, kTRUE, TLegend
 
+use_1D_model = 0
 lowRange = 0.
 highRange = 200.
  
@@ -18,7 +20,7 @@ isolation.setBins(21)
 # mass model for Z
 mZ = RooRealVar("mZ", "Z Mass", 91.2, lowRange, highRange);
 sigmaZ = RooRealVar("sigmaZ", "Width of Gaussian", 2, 0, 10, "GeV");
-mZModel = RooGaussian("mZModel", "Z+jets Model", invMass, mZ, sigmaZ);
+ZmassModel = RooGaussian("ZmassModel", "Z+jets Model", invMass, mZ, sigmaZ);
 # we know Z mass
 mZ.setConstant();
 # we leave the width of the Z free during the fit in this example.
@@ -31,7 +33,7 @@ zIsolDecayConst = RooConstVar("zIsolDecayConst", "z isolation decay  constant", 
 #zIsolationModel = RooExponential("zIsolationModel", "z isolation model", isolation, zIsolDecayConst);
 zIsolationModel = RooPoisson("zIsolationModel", "z isolation model", isolation, zIsolDecayConst)
 # make the combined Z model
-zModel = RooProdPdf("zModel", "2-d model for Z", RooArgSet(mZModel, zIsolationModel));
+zModel = RooProdPdf("zModel", "2-d model for Z", RooArgSet(ZmassModel, zIsolationModel));
 
 # --------------------------------------
 # make QCD model
@@ -73,6 +75,11 @@ model = RooAddPdf("model", "z+qcd background models", RooArgList(zModel, qcdMode
 # interesting for debugging and visualizing the model
 model.graphVizTree("fullModel.dot")
 
+#Only mass combined model
+zMassYield = RooRealVar("zMassYield", "fitted mass yield for Z", 50, 0., 1000);
+qcdMassYield = RooRealVar("qcdMassYield", "fitted mass yield for QCD", 500, 0., 1000);
+massModel = RooAddPdf("massModel", "z+qcd mass model", RooArgList(ZmassModel, qcdMassModel), RooArgList(zMassYield, qcdMassYield))
+
 """ ADD DATA """
 nEvents = 1000;
  
@@ -83,8 +90,12 @@ data = model.generate(RooArgSet(invMass, isolation), nEvents)
 """ Do SPLOT """
 print("Calculate sWeights")
 
-# fit the model to the data.
-model.fitTo(data, RooFit.Extended())
+if(use_1D_model):
+    # fit the 1D mass model to the data
+    massModel.fitTo(data, RooFit.Extended())
+else:
+    # fit the model to the data.
+    model.fitTo(data, RooFit.Extended())
 
 # The sPlot technique requires that we fix the parameters
 # of the model that are not yields after doing the fit.
@@ -107,7 +118,12 @@ RooMsgService.instance().setGlobalKillBelow(RooFit.ERROR)
 
 # Now we use the SPlot class to add SWeights to our data set
 # based on our model and our yield variables
-sData = RooStats.SPlot("sData", "An SPlot", data, model, RooArgList(zYield, qcdYield));
+if(use_1D_model):
+    #1D mass model
+    sData = RooStats.SPlot("sData", "An SPlot", data, massModel, RooArgList(zMassYield, qcdMassYield));
+else:
+    #2D model
+    sData = RooStats.SPlot("sData", "An SPlot", data, model, RooArgList(zYield, qcdYield));
 
 print("\n\nThe dataset after creating sWeights:\n")
 data.Print()
@@ -115,44 +131,67 @@ data.Print()
 # Check that our weights have the desired properties
 
 print("\n\n------------------------------------------\n")
-print("Check SWeights:", "Yield of Z is\t" , zYield.getVal() , ".  From sWeights it is ", sData.GetYieldFromSWeight("zYield"))
-
-print("Yield of QCD is\t" , qcdYield.getVal() , ".  From sWeights it is ", sData.GetYieldFromSWeight("qcdYield"))
-        
+if(use_1D_model):
+    print("Check SWeights:", "Yield of Z is\t" , zYield.getVal() , ".  From sWeights it is ", sData.GetYieldFromSWeight("zYield"))
+    print("Yield of QCD is\t" , qcdYield.getVal() , ".  From sWeights it is ", sData.GetYieldFromSWeight("qcdYield"))
+else:
+    print("Check SWeights:", "Yield of Z is\t" , zMassYield.getVal() , ".  From sWeights it is ", sData.GetYieldFromSWeight("zMassYield"))
+    print("Yield of QCD is\t" , qcdMassYield.getVal() , ".  From sWeights it is ", sData.GetYieldFromSWeight("qcdMassYield"))
+ 
+    
 
 for i in range(10):
-    print("z Weight for event ", i, sData.GetSWeight(i, "zYield"), "  qcd Weight", sData.GetSWeight(i, "qcdYield"), "  Total Weight", sData.GetSumOfEventSWeight(i))
-        
-
+    if(use_1D_model):
+        print("z Weight for event ", i, sData.GetSWeight(i, "zMassYield"), "  qcd Weight", sData.GetSWeight(i, "qcdMassYield"), "  Total Weight", sData.GetSumOfEventSWeight(i))  
+    else:
+        print("z Weight for event ", i, sData.GetSWeight(i, "zYield"), "  qcd Weight", sData.GetSWeight(i, "qcdYield"), "  Total Weight", sData.GetSumOfEventSWeight(i))
+    
 # import this new dataset with sWeights
 RooMsgService.instance().setGlobalKillBelow(RooFit.INFO)
 
 """ Make plots """
-cdata = TCanvas("sPlot", "sPlot demo", 1200, 900);
-cdata.Divide(3, 3);
+cdata = TCanvas("sPlot", "sPlot demo", 1200, 700);
+cdata.Divide(2, 3);
 
-# do this to set parameters back to their fitted values.
-model.fitTo(data, RooFit.Extended());
+if(use_1D_model):
+    massModel.fitTo(data, RooFit.Extended());    
+else:
+    #do this to set parameters back to their fitted values.
+    model.fitTo(data, RooFit.Extended());
 
 # plot invMass for data with full model and individual components overlaid
 #  TCanvas* cdata = new TCanvas();
 cdata.cd(1);
 frame = invMass.frame();
 data.plotOn(frame);
-model.plotOn(frame, RooFit.Name("FullModel"));
-model.plotOn(frame, RooFit.Components("zModel"), RooFit.LineStyle(kDashed), RooFit.LineColor(kRed), RooFit.Name("ZModel"));
-model.plotOn(frame, RooFit.Components("qcdModel"), RooFit.LineStyle(kDashed), RooFit.LineColor(kGreen), RooFit.Name("QCDModel"));
+if(use_1D_model):
+    massModel.plotOn(frame, RooFit.Name("FullModel"));
+    massModel.plotOn(frame, RooFit.Components("ZmassModel"), RooFit.LineStyle(kDashed), RooFit.LineColor(kRed), RooFit.Name("ZModel"));
+    massModel.plotOn(frame, RooFit.Components("qcdMassModel"), RooFit.LineStyle(kDashed), RooFit.LineColor(kGreen), RooFit.Name("QCDModel"));
 
-leg = TLegend(0.11, 0.5, 0.5, 0.8);
-leg.AddEntry(frame.findObject("FullModel"), "Full model", "L");
-leg.AddEntry(frame.findObject("ZModel"), "Z model", "L");
-leg.AddEntry(frame.findObject("QCDModel"), "QCD model", "L");
-leg.SetBorderSize(0);
-leg.SetFillStyle(0);
+    leg = TLegend(0.11, 0.5, 0.5, 0.8);
+    leg.AddEntry(frame.findObject("FullModel"), "Full model", "L");
+    leg.AddEntry(frame.findObject("ZmassModel"), "Z model", "L");
+    leg.AddEntry(frame.findObject("qcdMassModel"), "QCD model", "L");
+    leg.SetBorderSize(0);
+    leg.SetFillStyle(0);
 
-frame.SetTitle("Fit of model to discriminating variable");
+    frame.SetTitle("Fit of 1D model to discriminating variable");
+else:
+    model.plotOn(frame, RooFit.Name("FullModel"));
+    model.plotOn(frame, RooFit.Components("zModel"), RooFit.LineStyle(kDashed), RooFit.LineColor(kRed), RooFit.Name("ZModel"));
+    model.plotOn(frame, RooFit.Components("qcdModel"), RooFit.LineStyle(kDashed), RooFit.LineColor(kGreen), RooFit.Name("QCDModel"));
+
+    leg = TLegend(0.11, 0.5, 0.5, 0.8);
+    leg.AddEntry(frame.findObject("FullModel"), "Full model", "L");
+    leg.AddEntry(frame.findObject("ZModel"), "Z model", "L");
+    leg.AddEntry(frame.findObject("QCDModel"), "QCD model", "L");
+    leg.SetBorderSize(0);
+    leg.SetFillStyle(0);
+
+    frame.SetTitle("Fit of model to discriminating variable");
 frame.Draw();
-leg.DrawClone();
+leg.Draw();
 
 # Now use the sWeights to show isolation distribution for Z and QCD.
 # The SPlot class can make this easier, but here we demonstrate in more
@@ -166,7 +205,10 @@ leg.DrawClone();
 cdata.cd(2);
 
 # create weighted data set
-dataw_z = RooDataSet(data.GetName(), data.GetTitle(), data, data.get(), "0.01", "zYield_sw")
+if(use_1D_model):
+    dataw_z = RooDataSet(data.GetName(), data.GetTitle(), data, data.get(), "0.01", "zMassYield_sw")
+else:
+    dataw_z = RooDataSet(data.GetName(), data.GetTitle(), data, data.get(), "0.01", "zYield_sw")
 
 frame2 = isolation.frame();
 # Since the data are weighted, we use SumW2 to compute the errors.
@@ -180,17 +222,22 @@ frame2.Draw();
 # The SPlot class adds a new variable that has the name of the corresponding
 # yield + "_sw".
 cdata.cd(3);
-dataw_qcd = RooDataSet(data.GetName(), data.GetTitle(), data, data.get(), "qcdYield_sw>0");
+if(use_1D_model):
+    dataw_qcd = RooDataSet(data.GetName(), data.GetTitle(), data, data.get(), "qcdMassYield_sw>0");
+else:
+    dataw_qcd = RooDataSet(data.GetName(), data.GetTitle(), data, data.get(), "qcdYield_sw>0");
 frame3 = isolation.frame();
 dataw_qcd.plotOn(frame3, RooFit.DataError(RooAbsData.SumW2));
-model.plotOn(frame3, RooFit.Components("qcdIsolationModel"))
+if(use_1D_model==0):
+    model.plotOn(frame3, RooFit.Components("qcdIsolationModel"))
 frame3.SetTitle("Isolation distribution with s weights to project out QCD");
 frame3.Draw();
 
 cdata.cd(4)
 frame4 = isolation.frame()
 data.plotOn(frame4)
-model.plotOn(frame4, RooFit.Components("qcdIsolationModel"), RooFit.LineStyle(kDashed), RooFit.LineColor(kRed))
+if(use_1D_model==0):
+    model.plotOn(frame4, RooFit.Components("qcdIsolationModel"), RooFit.LineStyle(kDashed), RooFit.LineColor(kRed))
 frame4.Draw()
 
 cdata.Print("SPlot_py.pdf");
